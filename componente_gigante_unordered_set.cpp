@@ -4,6 +4,7 @@
 //#include <array>
 #include <cstdint>
 #include <iostream>
+#include <stack>
 
 using node = uint16_t;
 
@@ -92,41 +93,58 @@ class Net {
         return Nodes;
     }
 
-    Net get_giant_component(){
+    Net get_giant_component() {
         if (Nodes.empty()) {
             return Net();
         }
-        std::vector<bool> visited(Nodes.size(), false);
-        std::vector<bool> recorded(Nodes.size(), false);
-        std::vector<bool> best(Nodes.size(), false);
-        size_t giant_count = 0, count = 0, best_count = 0;
 
-        size_t left;
-        
-        //while (giant_count < count){
-        while (true){
-            int index = findFalseIndex(visited);
-            if (index == -1) break;
-            recorded = std::vector<bool>(Nodes.size(), false);
-            giant_count = count_unseen(index, visited, recorded);
-            if (giant_count > best_count){
-                best = recorded;
+        std::vector<bool> visited(Nodes.size(), false);
+        std::vector<bool> best(Nodes.size(), false);
+        //std::vector<bool> recorded(Nodes.size(), false);
+        size_t best_count = 0, count = 0, giant_count = 0;
+
+        std::stack<node> dfs_stack;
+
+        for (size_t start = 0; start < Nodes.size(); ++start) {
+            if (visited[start]) continue;
+            std::vector<bool> recorded(Nodes.size(), false);
+            giant_count = 0;
+            dfs_stack.push(start);
+
+            while (!dfs_stack.empty()) {
+                node current = dfs_stack.top();
+                dfs_stack.pop();
+
+                if (!visited[current]) {
+                    visited[current] = true;
+                    recorded[current] = true;
+                    ++giant_count;
+
+                    for (const node& neighbor : Nodes[current]) {
+                        if (!visited[neighbor]) {
+                            dfs_stack.push(neighbor);
+                        }
+                    }
+                }
+            }
+
+            if (giant_count > best_count) {
+                best = std::move(recorded);
                 best_count = giant_count;
             }
-            count += giant_count;
-            left = (Nodes.size() - count);
-
-            if (best_count > left) break;
-
+            if (best_count >= (Nodes.size()-count)) break;
         }
+
         std::unordered_map<node, std::unordered_set<node>> giant_component;
-        for (size_t i = 0; i < best.size(); i++){
-            if (best[i]){
+        for (size_t i = 0; i < best.size(); ++i) {
+            if (best[i]) {
                 giant_component[i] = Nodes[i];
             }
         }
+
         return Net(giant_component);
     }
+
 
     size_t count_unseen(const node i, std::vector<bool>& seen, std::vector<bool>& recorded) {
         size_t count = 1;
