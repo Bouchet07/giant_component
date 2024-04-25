@@ -5,8 +5,11 @@
 #include <cstdint>
 #include <iostream>
 #include <stack>
+#include <chrono>
+#include <random>
 
-using node = uint16_t;
+
+using node = uint32_t;
 
 int findFalseIndex(const std::vector<bool>& vec) {
     for (size_t i = 0; i < vec.size(); ++i) {
@@ -59,6 +62,9 @@ class Net {
     // Removes the node i
     void remove(const node i) {
         Nodes.erase(i);
+        for (auto& [_, neighbors] : Nodes) {
+            neighbors.erase(i);
+        }
     }
     // clears the net
     void clear() {
@@ -67,6 +73,7 @@ class Net {
 
     // links node i with node j
     void link(const node i, const node j) {
+        if (i == j) return;
         Nodes[i].insert(j);
         Nodes[j].insert(i);
     }
@@ -93,69 +100,106 @@ class Net {
         return Nodes;
     }
 
+    std::vector<node> index_to_node() {
+        std::vector<node> index_to_node(Nodes.size());
+        size_t j = 0;
+        for (const auto& [i, _] : Nodes) {
+            index_to_node[j]= i;
+            ++j;
+        }
+        return index_to_node;
+    }
+    std::unordered_map<node, node> node_to_index(std::vector<node> index_to_node) {
+        std::unordered_map<node, node> node_to_index;
+        for (size_t i = 0; i < index_to_node.size(); ++i) {
+            node_to_index[index_to_node[i]] = i;
+        }
+        return node_to_index;
+    }
+
     Net get_giant_component() {
         if (Nodes.empty()) {
             return Net();
         }
 
         std::vector<bool> visited(Nodes.size(), false);
-        std::vector<bool> best(Nodes.size(), false);
-        //std::vector<bool> recorded(Nodes.size(), false);
-        size_t best_count = 0, count = 0, giant_count = 0;
+        std::vector<node> best, recorded;
+        std::vector<node> index_to_node = this->index_to_node();
+        std::unordered_map<node, node> node_to_index = this->node_to_index(index_to_node);
 
+        size_t count = 0;
+
+        node start, current, current_index;
         std::stack<node> dfs_stack;
-
-        for (size_t start = 0; start < Nodes.size(); ++start) {
-            if (visited[start]) continue;
-            std::vector<bool> recorded(Nodes.size(), false);
-            giant_count = 0;
+        for (node i = 0; i < Nodes.size(); ++i) {
+            start = index_to_node[i];
+            if (visited[i]) continue;
+            recorded.clear();
             dfs_stack.push(start);
 
             while (!dfs_stack.empty()) {
-                node current = dfs_stack.top();
+                current = dfs_stack.top();
                 dfs_stack.pop();
 
-                if (!visited[current]) {
-                    visited[current] = true;
-                    recorded[current] = true;
-                    ++giant_count;
+                current_index = node_to_index[current];
+                if (!visited[current_index]) {
+                    visited[current_index] = true;
+                    recorded.push_back(current);
 
                     for (const node& neighbor : Nodes[current]) {
-                        if (!visited[neighbor]) {
+                        if (!visited[node_to_index[neighbor]]) {
                             dfs_stack.push(neighbor);
                         }
                     }
                 }
             }
-
-            if (giant_count > best_count) {
-                best = std::move(recorded);
-                best_count = giant_count;
-            }
-            if (best_count >= (Nodes.size()-count)) break;
+            count += recorded.size();
+            if (recorded.size() > best.size()) best = recorded;
+            if (best.size() >= (Nodes.size()-count)) break;
         }
 
         std::unordered_map<node, std::unordered_set<node>> giant_component;
-        for (size_t i = 0; i < best.size(); ++i) {
-            if (best[i]) {
-                giant_component[i] = Nodes[i];
-            }
+        for (const node& i : best) {
+            giant_component[i] = Nodes[i];
         }
 
         return Net(giant_component);
     }
 
+    Net ring(const node N) {
+        std::unordered_map<node, std::unordered_set<node>> ring;
+        for (node i = 0; i < N; i++) {
+            ring[i] = {};
+        }
+        Net net(ring);
+        for (node i = 0; i < N; i++) {
+            net.link(i, (i+1)%N);
+        }
+        return net;
+    }
 
-    size_t count_unseen(const node i, std::vector<bool>& seen, std::vector<bool>& recorded) {
-        size_t count = 1;
-        seen[i] = true;
-        recorded[i] = true;
-        for (const node& j : Nodes[i]) {
-            if (!seen[j]) {
-                count += count_unseen(j, seen, recorded);
+    node max(){
+        node max = 0;
+        for (const auto& [i, _] : Nodes) {
+            if (i > max) {
+                max = i;
             }
         }
-        return count;
+        return max;
+    }
+
+    Net join(const Net& net) {
+        node sum = this->max() + 1;
+        std::unordered_map<node, std::unordered_set<node>> joined = Nodes;
+        std::unordered_set<node> neighbors_sum;
+        for (const auto& [i, neighbors] : net.getNodes()) {
+            neighbors_sum.clear();
+            for (const node& j : neighbors) {
+                neighbors_sum.insert(j+sum);
+            }
+            joined[i+sum] = neighbors_sum;
+        }
+        return Net(joined);
     }
 
     void print() {
@@ -174,14 +218,25 @@ class Net {
 };
 
 int main(){
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(0, 1000);
+
+    auto start = std::chrono::high_resolution_clock::now();
     Net net;
-    std::cout << net.getNodes().size() << std::endl;
-    net.add(5);
-    net.link(3,{5,2});
-    net.print();
-    std::cout << net.getNodes().size() << std::endl;
-    std::cout << "Giant component:" << std::endl;
-    Net giant_net = net.get_giant_component();
-    giant_net.print();
+    for (int i = 0; i < 1000; i++) {
+        net.add(i);
+    }
+    for (int i = 0; i < 1000; i++) {
+        for (int j = 0; j < 1; j++) {
+            net.link(i, dist(gen));
+        }
+    }
+    Net giant = net.get_giant_component();
+    giant.print();
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    std::cout << "Elapsed time: " << elapsed.count() << " s\n";
     return 0;
 }
