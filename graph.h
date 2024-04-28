@@ -258,4 +258,46 @@ class Net {
         }
         return ring;
     }
+    static Net BarabasiAlbert(const node N, const size_t m) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<int> dist(0, N);
+        Net net = Net::ring(m+1, m);
+        std::vector<node> index_to_node = net.index_to_node();
+        std::unordered_map<node, node> node_to_index = net.node_to_index(index_to_node);
+        std::vector<size_t> degree_dist = net.degree_list();
+        std::vector<double> prob(N);
+        std::vector<node> nodes;
+        for (node i = 0; i < N; i++) {
+            nodes.push_back(i);
+        }
+        for (size_t i = m+1; i < N; i++) {
+            for (size_t j = 0; j < m; j++) {
+                prob[j] = degree_dist[j]/(2*(i-1));
+            }
+            std::discrete_distribution<> d(prob.begin(), prob.end());
+            for (size_t j = 0; j < m; j++) {
+                net.link(i, index_to_node[d(gen)]);
+            }
+            degree_dist.push_back(m);
+        }
+        return net;
+    }
+    static Net ErdosRenyi(const node N, const double p) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<double> dist(0, 1);
+        Net net;
+        for (node i = 0; i < N; i++) {
+            net.add(i);
+        }
+        for (node i = 0; i < N; i++) {
+            for (node j = i+1; j < N; j++) {
+                if (dist(gen) < p) {
+                    net.link(i, j);
+                }
+            }
+        }
+        return net;
+    }
 };
