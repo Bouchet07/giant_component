@@ -5,25 +5,15 @@ CC = g++
 CFLAGS = -Wall -Wextra -pedantic -std=c++17
 
 # Source files
-SRCS = componente_gigante_unordered_set.cpp
-
-# Object files
-OBJS = $(SRCS:.cpp=.o)
+SRCS = main.cpp
 
 # Executable name
-TARGET = myprogram.exe
+TARGET = main.exe
 
 # Default target
-all: $(TARGET)
-
-# Rule to build the executable
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET)
-
-# Rule to build object files
-%.o: %.cpp
-	$(CC) $(CFLAGS) -c $< -o $@
+all:
+	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET)
 
 # Clean rule
 clean:
-	del $(OBJS) $(TARGET)
+	del $(TARGET)
