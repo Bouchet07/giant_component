@@ -89,6 +89,7 @@ class Net {
     // unlinks node i with node j
     void unlink(const node i, const node j) {
         Nodes[i].erase(j);
+        Nodes[j].erase(i);
     }
     // unlinks node i with all nodes in the set neighbors
     void unlink(const node i, const std::unordered_set<node>& neighbors) {
@@ -168,17 +169,6 @@ class Net {
         return Net(giant_component);
     }
 
-    Net ring(const node N) {
-        std::unordered_map<node, std::unordered_set<node>> ring;
-        for (node i = 0; i < N; i++) {
-            ring[i] = {};
-        }
-        Net net(ring);
-        for (node i = 0; i < N; i++) {
-            net.link(i, (i+1)%N);
-        }
-        return net;
-    }
 
     node max(){
         node max = 0;
@@ -203,6 +193,23 @@ class Net {
         }
         return Net(joined);
     }
+    std::vector<size_t> degree_list() {
+        std::vector<size_t> degree_dist;
+        for (const auto& [_, neighbors] : Nodes) {
+            degree_dist.push_back(neighbors.size());
+        }
+        return degree_dist;
+    }
+    std::vector<size_t> degree_distribution() {
+        std::vector<size_t> degree_dist;
+        for (const auto& [_, neighbors] : Nodes) {
+            if (degree_dist.size() <= neighbors.size()) {
+                degree_dist.resize(neighbors.size()+1);
+            }
+            degree_dist[neighbors.size()]++;
+        }
+        return degree_dist;
+    }
 
     void print() {
         if (Nodes.empty()) {
@@ -216,5 +223,39 @@ class Net {
             }
             std::cout << std::endl;
         }
+    }
+    static Net ring(const node N, const size_t grade=1) {
+        std::unordered_map<node, std::unordered_set<node>> ring;
+        for (node i = 0; i < N; i++) {
+            ring[i] = {};
+        }
+        Net net(ring);
+        for (node i = 0; i < N; i++) {
+            for (size_t j = 1; j <= grade/2; j++) {
+                net.link(i, (i+j)%N);
+            }
+        }
+        return net;
+    }
+    static Net WattsStrogatz(const node N, const size_t grade, const double beta) {
+        Net ring = Net::ring(N, grade);
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<double> dist(0, 1);
+        std::uniform_int_distribution<> dis(0, N - 3);
+        
+        size_t num_rand;
+        for (node i = 0; i < N; i++) {
+            for (size_t j = 1; j <= grade/2; j++) {
+                if (dist(gen) < beta) {
+                    ring.unlink(i, (i+j)%N);
+                    num_rand = dist(gen)*N;
+                    if (num_rand >= i) num_rand++;
+                    if (num_rand >= j) num_rand++;
+                    ring.link(i, dist(gen)*N);
+                }
+            }
+        }
+        return ring;
     }
 };
