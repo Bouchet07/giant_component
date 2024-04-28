@@ -24,12 +24,6 @@ int main(){
     /* Net Watts1 = Net::WattsStrogatz(10000, 10, 0.5);
     Net Watts2 = Net::WattsStrogatz(10000, 10, 0.5); */
     Net Erdos1 = Net::ErdosRenyi(10000, 0.0001);
-    Net giant = Erdos1.get_giant_component();
-    giant.print();
-    //Erdos1.print();
-    //Watts.print();
-
-    //Net ring = Net::ring(10000, 10);
-    //ring.print(); */
+    Erdos1.plot_degree_distribution();
     return 0;
 }

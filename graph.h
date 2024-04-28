@@ -210,19 +210,32 @@ class Net {
         }
         return degree_dist;
     }
+    void plot_degree_distribution() {
+    std::vector<size_t> data = degree_distribution();
+    // Create a pipe to Gnuplot
+    FILE *gnuplotPipe = popen("gnuplot -persist", "w");
+    if (!gnuplotPipe) {
+        std::cerr << "Error opening Gnuplot pipe!" << std::endl;
+        return;
+    }
+
+    // Send commands to Gnuplot to plot the histogram
+    fprintf(gnuplotPipe, "set boxwidth 0.5\n");
+    fprintf(gnuplotPipe, "set style fill solid\n");
+    fprintf(gnuplotPipe, "plot '-' using 1:2 with boxes notitle\n");
+
+    // Send data to Gnuplot
+    for (size_t i = 0; i < data.size(); ++i) {
+        fprintf(gnuplotPipe, "%zu %zu\n", i, data[i]);
+    }
+    fprintf(gnuplotPipe, "e\n"); // End of data
+
+    // Close the Gnuplot pipe
+    pclose(gnuplotPipe);
+    }
 
     void print() {
-        if (Nodes.empty()) {
-            std::cout << "Empty net" << std::endl;
-            return;
-        }
-        for (const auto& [i, neighbors] : Nodes) {
-            std::cout << i << ": ";
-            for (const node& j : neighbors) {
-                std::cout << j << " ";
-            }
-            std::cout << std::endl;
-        }
+        std::cout << *this;
     }
     static Net ring(const node N, const size_t grade=1) {
         std::unordered_map<node, std::unordered_set<node>> ring;
@@ -299,5 +312,37 @@ class Net {
             }
         }
         return net;
+    }
+    // overload the operator+ to join two nets
+    Net operator+(const Net& net) {
+        return this->join(net);
+    }
+    // overload the operator+= to join two nets
+    Net& operator+=(const Net& net) {
+        node sum = this->max() + 1;
+        std::unordered_set<node> neighbors_sum;
+        for (const auto& [i, neighbors] : net.getNodes()) {
+            neighbors_sum.clear();
+            for (const node& j : neighbors) {
+                neighbors_sum.insert(j+sum);
+            }
+            Nodes[i+sum] = neighbors_sum;
+        }
+        return *this;
+    }
+    // overload the << operator to print the net
+    friend std::ostream& operator<<(std::ostream& os, const Net& net) {
+        if (net.Nodes.empty()) {
+            os << "Empty net" << std::endl;
+            return os;
+        }
+        for (const auto& [i, neighbors] : net.Nodes) {
+            os << i << ": ";
+            for (const node& j : neighbors) {
+                os << j << " ";
+            }
+            os << std::endl;
+        }
+        return os;
     }
 };
