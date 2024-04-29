@@ -211,27 +211,27 @@ class Net {
         return degree_dist;
     }
     void plot_degree_distribution() {
-    std::vector<size_t> data = degree_distribution();
-    // Create a pipe to Gnuplot
-    FILE *gnuplotPipe = popen("gnuplot -persist", "w");
-    if (!gnuplotPipe) {
-        std::cerr << "Error opening Gnuplot pipe!" << std::endl;
-        return;
-    }
+        std::vector<size_t> data = degree_distribution();
+        // Create a pipe to Gnuplot
+        FILE *gnuplotPipe = popen("gnuplot -persist", "w");
+        if (!gnuplotPipe) {
+            std::cerr << "Error opening Gnuplot pipe!" << std::endl;
+            return;
+        }
+        //fprintf(gnuplotPipe, "show term\n");
+        // Send commands to Gnuplot to plot the histogram
+        fprintf(gnuplotPipe, "set boxwidth 0.5\n");
+        fprintf(gnuplotPipe, "set style fill solid\n");
+        fprintf(gnuplotPipe, "plot '-' using 1:2 with boxes notitle\n");
 
-    // Send commands to Gnuplot to plot the histogram
-    fprintf(gnuplotPipe, "set boxwidth 0.5\n");
-    fprintf(gnuplotPipe, "set style fill solid\n");
-    fprintf(gnuplotPipe, "plot '-' using 1:2 with boxes notitle\n");
+        // Send data to Gnuplot
+        for (size_t i = 0; i < data.size(); ++i) {
+            fprintf(gnuplotPipe, "%zu %zu\n", i, data[i]);
+        }
+        fprintf(gnuplotPipe, "e\n"); // End of data
 
-    // Send data to Gnuplot
-    for (size_t i = 0; i < data.size(); ++i) {
-        fprintf(gnuplotPipe, "%zu %zu\n", i, data[i]);
-    }
-    fprintf(gnuplotPipe, "e\n"); // End of data
-
-    // Close the Gnuplot pipe
-    pclose(gnuplotPipe);
+        // Close the Gnuplot pipe
+        pclose(gnuplotPipe);
     }
 
     void print() {
