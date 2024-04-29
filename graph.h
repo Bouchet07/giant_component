@@ -34,6 +34,11 @@ class Net {
             Nodes[i] = neighbors[i];
         }
     }
+    Net(const size_t N) {
+        for (node i = 0; i < N; i++) {
+            Nodes[i] = std::unordered_set<node>();
+        }
+    }
 
     // Adds a new node at i with no neighbors
     void add(const node i) {
@@ -265,6 +270,13 @@ class Net {
                     num_rand = dist(gen)*N;
                     if (num_rand >= i) num_rand++;
                     if (num_rand >= j) num_rand++;
+                    while (ring.getNodes()[i].count(num_rand)) {
+                        num_rand = dis(gen);
+                        if (num_rand >= i) num_rand++;
+                        if (num_rand >= j) num_rand++;
+                        //iterat++;
+                        std::cout << "collision\n";
+                    }
                     ring.link(i, dist(gen)*N);
                 }
             }
