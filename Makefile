@@ -4,6 +4,7 @@ CC = g++
 # Compiler flags
 CFLAGS = -Wall -Wextra -pedantic -std=c++17 -Ofast
 
+
 # Source files
 SRCS = main.cpp
 
@@ -11,7 +12,7 @@ SRCS = main.cpp
 TARGET = main.exe
 
 # Default target
-all:
+all: $(SRCS)
 	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET)
 
 # Clean rule
