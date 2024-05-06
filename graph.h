@@ -10,43 +10,25 @@
 #include <chrono>
 #include <random>
 #include <algorithm>
+#include <iomanip>
 
 
 using node = uint32_t;
 
-int findFalseIndex(const std::vector<bool>& vec) {
-    for (size_t i = 0; i < vec.size(); ++i) {
-        if (!vec[i]) {
-            return i;
-        }
-    }
-    return -1; // Return -1 if no false element found
-}
-
 class CNet {
     private:
     std::vector<std::vector<node>> Nodes;
-    void inline link_no_check(const node i, const node j) {
-        if (i == j) return;
-        Nodes[i].push_back(j);
-        Nodes[j].push_back(i);
-    }
+    
     public:
     CNet() {}
     CNet(const std::vector<std::vector<node>>& neighbors) : Nodes(neighbors) {}
     CNet(const size_t N) {
         Nodes.resize(N);
     }
-    /* CNet operator+(const CNet& net) {
-        std::vector<std::vector<node>> joined = Nodes;
-        for (size_t i = 0; i < net.getNodes().size(); i++) {
-            joined.push_back(net.getNodes()[i]);
-            for (size_t j=0; j < joined[joined.size()-1].size(); j++) {
-                joined[joined.size()-1][j] += Nodes.size();
-            }
-        }
-        return CNet(joined);
-    } */
+    // Reserve space for N nodes
+    void reserve(const size_t N) {
+        Nodes.reserve(N);
+    }
     CNet operator+(const CNet& net) {
         std::vector<std::vector<node>> joined;
         joined.reserve(Nodes.size() + net.getNodes().size());
@@ -71,15 +53,32 @@ class CNet {
 
         return CNet(joined);
     }
+    CNet& operator+=(const CNet& net) {
+        node offset = Nodes.size();
+        Nodes.reserve(Nodes.size() + net.getNodes().size());
+        // Offset the nodes from the input network and append to joined
+        for (const auto& nodeVec : net.getNodes()) {
+            std::vector<node> offsetNodes;
+            offsetNodes.reserve(nodeVec.size());
 
+            // Offset each node index
+            for (const auto& n : nodeVec) {
+                offsetNodes.push_back(n + offset);
+            }
+
+            Nodes.push_back(std::move(offsetNodes));
+        }
+        return *this;
+    }
     std::vector<std::vector<node>> getNodes() const {
         return Nodes;
     }
-    
+    // Unlinks two nodes
     void unlink(const node i, const node j) {
         Nodes[i].erase(std::find(Nodes[i].begin(), Nodes[i].end(), j));
         Nodes[j].erase(std::find(Nodes[j].begin(), Nodes[j].end(), i));
     }
+    // Links two nodes if they are not already linked
     void link(node i, node j) {
         if (i == j) return;
 
@@ -90,6 +89,13 @@ class CNet {
             Nodes[j].push_back(i);
         }
     }
+    // (WARNING) This function is used to link two nodes without checking if they are already linked (use link insrtad)
+    void inline link_no_check(const node i, const node j) {
+        if (i == j) return;
+        Nodes[i].push_back(j);
+        Nodes[j].push_back(i);
+    }
+    // Prints the network
     void print() {
         for (size_t i = 0; i < Nodes.size(); i++) {
             std::cout << i << ": ";
@@ -99,6 +105,7 @@ class CNet {
             std::cout << std::endl;
         }
     }
+    // Returns a connected subgraph of the network
     CNet connected_subgraph(const std::vector<node>& nodes) {
         std::vector<std::vector<node>> subgraph(nodes.size());
         std::unordered_map<node, node> node_to_index;
@@ -113,6 +120,7 @@ class CNet {
         }
         return CNet(subgraph);
     }
+    // Returns the giant component of the network
     CNet get_giant_component() {
         if (Nodes.empty()) {
             return CNet();
@@ -152,6 +160,7 @@ class CNet {
 
         return this->connected_subgraph(best);
     }
+    // Returns the degree distribution of the network
     std::vector<size_t> degree_distribution() {
         std::vector<size_t> degree_dist;
         for (const auto& neighbors : Nodes){
@@ -162,6 +171,16 @@ class CNet {
         }
         return degree_dist;
     }
+    // Prints the degree distribution of the network
+    void print_degree_distribution() {
+        auto vec = degree_distribution();
+        std::cout << "Degree distribution:\t";
+        for (auto i : vec) {
+            std::cout << std::setw(2) << i << " ";
+        }
+        std::cout << std::endl;
+    }
+    // Plots the degree distribution of the network using Gnuplot
     void plot_degree_distribution() {
         std::vector<size_t> data = degree_distribution();
         // Create a pipe to Gnuplot
@@ -185,6 +204,7 @@ class CNet {
         // Close the Gnuplot pipe
         pclose(gnuplotPipe);
     }
+    // Creates a ring network, where each node has grade neighbors
     static CNet ring(const node N, const size_t grade=2) {
         CNet ring(N);
         for (node i = 0; i < N; i++) {
@@ -194,6 +214,7 @@ class CNet {
         }
         return ring;
     }
+    // Creates a Watts-Strogatz network
     static CNet WattsStrogatz(const node N, const size_t grade, const double beta) {
         CNet ring = CNet::ring(N, grade);
         
@@ -221,6 +242,34 @@ class CNet {
         }
         return ring;
     }
+    static CNet WattsStrogatz_rewire(const node N, const size_t grade, const double beta) {
+        CNet ring = CNet::ring(N, grade);
+        
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<double> dist(0, 1);
+        std::uniform_int_distribution<> dis(0, N - 3);
+        
+        size_t num_rand;
+        for (node i = 0; i < N; i++) {
+            for (size_t j = 1; j <= grade/2; j++) {
+                if (dist(gen) < beta) {
+                    ring.unlink(i, (i+j)%N);
+                    num_rand = dis(gen);
+                    if (num_rand >= i) num_rand++;
+                    if (num_rand >= j) num_rand++;
+                    while (std::find(ring.Nodes[i].begin(), ring.Nodes[i].end(), num_rand) != ring.Nodes[i].end()) {
+                        num_rand = dis(gen);
+                        if (num_rand >= i) num_rand++;
+                        if (num_rand >= j) num_rand++;
+                    }
+                    ring.link_no_check(i, num_rand);
+                }
+            }
+        }
+        return ring;
+    }
+    // Creates a Barabasi-Albert network
     static CNet BarabasiAlbert(const node N, const size_t m) {
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -244,6 +293,7 @@ class CNet {
         }
         return net;
     }
+    // Creates an Erdos-Renyi network
     static CNet ErdosRenyi(const node N, const double p) {
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -263,6 +313,32 @@ class CNet {
 class Net {
     private:
     std::unordered_map<node, std::unordered_set<node>> Nodes;
+    static Net _WattsStrogatz(const node N, const size_t grade, const double beta) {
+        Net ring = Net::ring(N, grade);
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<double> dist(0, 1);
+        std::uniform_int_distribution<> dis(0, N - 3);
+        
+        size_t num_rand;
+        for (node i = 0; i < N; i++) {
+            for (size_t j = 1; j <= grade/2; j++) {
+                if (dist(gen) < beta) {
+                    ring.unlink(i, (i+j)%N);
+                    num_rand = dis(gen);
+                    if (num_rand >= i) num_rand++;
+                    if (num_rand >= j) num_rand++;
+                    while (ring.getNodes()[i].count(num_rand)) {
+                        num_rand = dis(gen);
+                        if (num_rand >= i) num_rand++;
+                        if (num_rand >= j) num_rand++;
+                    }
+                    ring.link(i, num_rand);
+                }
+            }
+        }
+        return ring;
+    }
 
     public:
     Net() {}
@@ -519,34 +595,12 @@ class Net {
         }
         return net;
     }
+    
+    // binder to optimized WattsStrogatz from CNet
     static Net WattsStrogatz(const node N, const size_t grade, const double beta) {
-        Net ring = Net::ring(N, grade);
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<double> dist(0, 1);
-        std::uniform_int_distribution<> dis(0, N - 3);
-        
-        size_t num_rand;
-        for (node i = 0; i < N; i++) {
-            for (size_t j = 1; j <= grade/2; j++) {
-                if (dist(gen) < beta) {
-                    ring.unlink(i, (i+j)%N);
-                    num_rand = dis(gen);
-                    if (num_rand >= i) num_rand++;
-                    if (num_rand >= j) num_rand++;
-                    while (ring.getNodes()[i].count(num_rand)) {
-                        num_rand = dis(gen);
-                        if (num_rand >= i) num_rand++;
-                        if (num_rand >= j) num_rand++;
-                        //iterat++;
-                        //std::cout << "collision\n";
-                    }
-                    ring.link(i, dist(gen)*N);
-                }
-            }
-        }
-        return ring;
+        return Net(CNet::WattsStrogatz(N, grade, beta));
     }
+
     static Net BarabasiAlbert(const node N, const size_t m) {
         std::random_device rd;
         std::mt19937 gen(rd());
