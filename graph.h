@@ -181,7 +181,7 @@ class CNet {
         std::cout << std::endl;
     }
     // Plots the degree distribution of the network using Gnuplot
-    void plot_degree_distribution() {
+    void plot_degree_distribution(const std::string& term="qt", const bool pause=true) {
         std::vector<size_t> data = degree_distribution();
         // Create a pipe to Gnuplot
         FILE *gnuplotPipe = popen("gnuplot -persist", "w");
@@ -191,16 +191,27 @@ class CNet {
         }
         //fprintf(gnuplotPipe, "show term\n");
         // Send commands to Gnuplot to plot the histogram
+        //fprintf(gnuplotPipe, "set term wxt enhanced\n");
+        fprintf(gnuplotPipe, "set term %s\n", term.c_str());
         fprintf(gnuplotPipe, "set boxwidth 0.5\n");
         fprintf(gnuplotPipe, "set style fill solid\n");
         fprintf(gnuplotPipe, "plot '-' using 1:2 with boxes notitle\n");
 
-        // Send data to Gnuplot
+        
+        size_t start = 0;
         for (size_t i = 0; i < data.size(); ++i) {
+            if (data[i] != 0){
+                start = i;
+                break;
+            }
+        }
+        // Send data to Gnuplot
+        for (size_t i = start; i < data.size(); ++i) {
             fprintf(gnuplotPipe, "%zu %zu\n", i, data[i]);
         }
         fprintf(gnuplotPipe, "e\n"); // End of data
-
+        
+        if (pause) fprintf(gnuplotPipe, "pause mouse close\n");
         // Close the Gnuplot pipe
         pclose(gnuplotPipe);
     }
